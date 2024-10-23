@@ -1,0 +1,24 @@
+# Project Structure
+
+smart-assistant/
+├── go.mod
+├── main.go
+├── assistant/
+│   ├── assistant.go
+│   ├── cache.go
+│   └── vector_db.go
+├── web/
+│   └── gui.go
+├── templates/
+│   └── index.html
+└── static/
+    └── css/
+        └── main.css
+
+# Initial Setup Commands
+mkdir smart-assistant
+cd smart-assistant
+go mod init smart-assistant
+go get github.com/gorilla/mux
+go get github.com/gorilla/websocket
+go get github.com/sajari/docconv
