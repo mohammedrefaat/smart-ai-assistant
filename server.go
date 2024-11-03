@@ -53,6 +53,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fmt.Println("Error decoding request:", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}

@@ -21,7 +21,8 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Sdb.Close()
-
+	fs := http.FileServer(http.Dir("frontend"))
+	http.Handle("/", fs)
 	http.HandleFunc("/chat", chatHandler)
 
 	server := &http.Server{
