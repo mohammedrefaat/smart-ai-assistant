@@ -229,14 +229,14 @@ func (p *RSSProcessor) Fetch(feedURL string) ([]Content, error) {
 	return contents, nil
 }
 
-func NewIngester(db *sqlx.DB, youtubeAPIKey string) (*Ingester, error) {
+func NewIngester(db *DB, youtubeAPIKey string) (*Ingester, error) {
 	ytProcessor, err := NewYouTubeProcessor(youtubeAPIKey)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Ingester{
-		db:           db,
+		db:           db.Sdb,
 		apiProcessor: &APIProcessor{client: http.DefaultClient},
 		webProcessor: &WebProcessor{client: http.DefaultClient},
 		pdfProcessor: &PDFProcessor{},
@@ -311,11 +311,9 @@ func (i *Ingester) processSource(source Source) error {
 			continue
 		}
 
-		// Add to knowledge base
-		err = addDocument(i.db,
-			fmt.Sprintf("%s-%d", source.ID, time.Now().UnixNano()),
-			content.Text,
-			embedding)
+		// Add document to database
+		err = db.AddDocument(context.Background(), fmt.Sprintf("%s-%d", source.ID, time.Now().UnixNano()), content.Text, embedding)
+
 		if err != nil {
 			log.Printf("Error adding document from %s: %v", source.URL, err)
 			continue

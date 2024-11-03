@@ -1,0 +1,81 @@
+{
+    "server": {
+      "host": "0.0.0.0",
+      "port": 8080,
+      "readTimeout": "15s",
+      "writeTimeout": "15s",
+      "maxHeaderBytes": 1048576,
+      "allowedOrigins": [],
+      "trustedProxies": [],
+      "rateLimit": 100,
+      "requestTimeout": "30s",
+      "maxRequestSize": 10485760,
+      "enableHTTPS": false,
+      "certFile": "",
+      "keyFile": ""
+    },
+    "database": {
+      "host": "localhost",
+      "port": 5433,
+      "user": "postgres",
+      "password": "244159",
+      "database": "knowledge_base",
+      "maxOpenConns": 25,
+      "maxIdleConns": 25,
+      "sslMode": "disable",
+      "schema": "public",
+      "timeout": "5s"
+    },
+    "cache": {
+      "type": "redis",
+      "host": "localhost",
+      "port": 6379,
+      "password": "",
+      "db": 0,
+      "ttl": "24h",
+      "maxSize": 1000,
+      "enableCache": true
+    },
+    "ai": {
+      "model": "llama3.2",
+      "apiKey": "http://localhost:11434/api",
+      "maxTokens": 2000,
+      "temperature": 0.7,
+      "embeddingModel": "text-embedding-ada-002",
+      "embeddingDim": 1536,
+      "batchSize": 32,
+      "requestTimeout": "30s",
+      "enableRetries": false,
+      "maxRetries": 3,
+      "retryDelay": "1s"
+    },
+    "youtube": {
+      "apiKey": "youtube",
+      "maxResults": 50,
+      "quotaPerDay": 10000,
+      "enableCache": true,
+      "cacheDuration": "24h",
+      "requestTimeout": "10s"
+    },
+    "sources": {
+      "defaultSchedule": "0 */6 * * *",
+      "maxSourcesPerUser": 100,
+      "updateInterval": "15m",
+      "maxRetries": 3,
+      "retryDelay": "5s",
+      "timeoutDuration": "1m",
+      "maxConcurrent": 5,
+      "cleanupInterval": "24h",
+      "retentionPeriod": "720h"
+    },
+    "logger": {
+      "level": "info",
+      "file": "",
+      "maxSize": 100,
+      "maxBackups": 3,
+      "maxAge": 28,
+      "compress": true,
+      "enableJSON": true,
+      "enableConsole": true
+    }
+  }

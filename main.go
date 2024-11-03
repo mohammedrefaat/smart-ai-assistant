@@ -1,67 +1,38 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
+	"time"
+
+	"github.com/mohammedrefaat/smart-ai-assistant/config"
 )
 
 func main() {
-	// Initialize database
-	var err error
-	db, err := initPostgres()
+	// Load configuration
+	cfg, err := config.LoadConfig("./config.json")
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	db, err = InitPostgres(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer db.Close()
+	defer db.Sdb.Close()
 
-	// Initialize the server with the database connection
-	initServer(db)
-
-	// Initialize knowledge ingester
-	youtubeAPIKey := os.Getenv("YOUTUBE_API_KEY")
-	ingester, err := NewIngester(db, youtubeAPIKey)
-	if err != nil {
-		log.Fatalf("Failed to initialize ingester: %v", err)
-	}
-
-	// Start the ingester
-	ingester.Start()
-	defer ingester.Stop()
-
-	// Add source handling endpoints
-	http.HandleFunc("/api/source", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		var source struct {
-			Type     string `json:"type"`
-			URL      string `json:"url"`
-			Schedule string `json:"schedule"`
-		}
-
-		if err := json.NewDecoder(r.Body).Decode(&source); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-
-		if err := ingester.AddSource(source.Type, source.URL, source.Schedule); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusCreated)
-	})
-
-	// Existing chat handler
 	http.HandleFunc("/chat", chatHandler)
 
+	server := &http.Server{
+		Addr:           ":8080",
+		ReadTimeout:    time.Second * 30,
+		WriteTimeout:   time.Second * 30,
+		MaxHeaderBytes: 1 << 20,
+	}
+
 	fmt.Println("Server started at :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
 }

@@ -1,31 +1,50 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/mohammedrefaat/smart-ai-assistant/config"
 )
 
+// Global database instance
+var db *DB
+
+// Document represents a document in the knowledge base
+type Document struct {
+	ID        int       `db:"id"`
+	DocID     string    `db:"doc_id"`
+	Content   string    `db:"content"`
+	Embedding []float64 `db:"embedding"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+}
+
+// DB wraps sqlx.DB to provide custom functionality
+type DB struct {
+	Sdb *sqlx.DB
+	cfg *config.Config
+}
+
+// DatabaseConfig holds database configuration
+
+// ChatRequest represents the incoming chat request
 type ChatRequest struct {
 	Query string `json:"query"`
 }
 
+// ChatResponse represents the outgoing chat response
 type ChatResponse struct {
 	Response string   `json:"response"`
 	Sources  []string `json:"sources,omitempty"`
 }
 
-// Add db as a package-level variable
-var db *sqlx.DB
-
-// Initialize the db variable
-func initServer(database *sqlx.DB) {
-	db = database
-}
-
+// chatHandler processes incoming chat requests
 func chatHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -38,21 +57,18 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate embedding for the query
 	queryEmbedding, err := generateEmbedding(req.Query)
 	if err != nil {
 		http.Error(w, "Failed to generate embedding", http.StatusInternalServerError)
 		return
 	}
 
-	// Use the global db variable to retrieve similar documents
-	docs, err := querySimilarDocuments(db, queryEmbedding, 3)
+	docs, err := QuerySimilarDocuments(context.Background(), queryEmbedding, 10, 0.5, db)
 	if err != nil {
 		http.Error(w, "Failed to retrieve context", http.StatusInternalServerError)
 		return
 	}
 
-	// Build context from similar documents
 	var contexts []string
 	var sources []string
 	for _, doc := range docs {
@@ -60,24 +76,13 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 		sources = append(sources, doc.DocID)
 	}
 
-	// Build prompt with context
-	prompt := fmt.Sprintf(`Use the following information to answer the question:
-
-Context:
-%s
-
-Question: %s
-
-Answer:`, strings.Join(contexts, "\n\n"), req.Query)
-
-	// Generate response using Ollama
+	prompt := buildPrompt(contexts, req.Query)
 	response, err := generateText(prompt)
 	if err != nil {
 		http.Error(w, "Failed to generate response", http.StatusInternalServerError)
 		return
 	}
 
-	// Send response
 	chatResp := ChatResponse{
 		Response: response,
 		Sources:  sources,
@@ -85,4 +90,16 @@ Answer:`, strings.Join(contexts, "\n\n"), req.Query)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(chatResp)
+}
+
+// buildPrompt creates the prompt for text generation
+func buildPrompt(contexts []string, query string) string {
+	return fmt.Sprintf(`Use the following information to answer the question:
+
+Context:
+%s
+
+Question: %s
+
+Answer:`, strings.Join(contexts, "\n\n"), query)
 }
