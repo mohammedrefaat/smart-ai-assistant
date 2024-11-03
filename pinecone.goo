@@ -1,0 +1,68 @@
+package main
+
+import (
+	"context"
+	"os"
+
+	"github.com/pinecone-io/go-pinecone/pinecone"
+)
+
+var pineconeClient *pinecone.Client
+
+// Initialize Pinecone client with proper parameters
+func initializePinecone() *pinecone.Client {
+	apiKey := os.Getenv("PINECONE_API_KEY")
+	environment := os.Getenv("PINECONE_ENVIRONMENT") // Pinecone environment, like "us-west1-gcp"
+
+	client, err := pinecone.NewClient(pinecone.NewClientParams{
+		ApiKey:      apiKey,
+		Environment: environment,
+	})
+	if err != nil {
+		panic("Failed to initialize Pinecone client: " + err.Error())
+	}
+
+	return client
+}
+
+// Add a document to Pinecone for knowledge base storage
+func addDocument(client *pinecone.Client, docID string, text string) error {
+	// Generate embedding (replace this with actual Ollama embedding function)
+	embedding := generateEmbedding(text)
+
+	// Use Upsert API to add document
+	_, err := client.Upsert(context.Background(), &pinecone.UpsertRequest{
+		Index: "your_index_name", // Replace with your actual Pinecone index name
+		Vectors: []pinecone.Vector{
+			{
+				ID:     docID,
+				Values: embedding,
+			},
+		},
+	})
+	return err
+}
+
+// Query for relevant documents in Pinecone
+func queryPinecone(client *pinecone.Client, queryText string, topK int) ([]pinecone.Match, error) {
+	// Generate embedding for query
+	embedding := generateEmbedding(queryText)
+
+	// Use Query API to search for relevant vectors
+	response, err := client.Query(context.Background(), &pinecone.QueryRequest{
+		Index:         "your_index_name", // Replace with your actual Pinecone index name
+		TopK:          topK,
+		Vector:        embedding,
+		IncludeValues: false, // We don't need vector values, only IDs and metadata
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Matches, nil
+}
+
+// Dummy function for embedding generation, replace with Ollama embedding function
+func generateEmbedding(text string) []float64 {
+	return []float64{0.1, 0.2, 0.3} // Placeholder values, replace with actual embedding generation logic
+}

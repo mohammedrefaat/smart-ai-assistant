@@ -1,52 +1,67 @@
-// File: main.go
-
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
 	"os"
-
-	"github.com/mohammedrefaat/smart-ai-assistant/assistant"
-	"github.com/mohammedrefaat/smart-ai-assistant/web"
 )
 
 func main() {
-	// Initialize configuration
-	config := assistant.Config{
-		ModelPath:    "./models",
-		CachePath:    "./cache",
-		VectorDBPath: "./vectordb.gob",
-		MaxTokens:    2000,
-		Temperature:  0.7,
-		EmbeddingDim: 300,
-		UseOnline:    true,
-		MaxCacheSize: 1 << 30, // 1GB
-		LearningRate: 0.1,
+	// Initialize database
+	var err error
+	db, err := initPostgres()
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer db.Close()
+
+	// Initialize the server with the database connection
+	initServer(db)
+
+	// Initialize knowledge ingester
+	youtubeAPIKey := os.Getenv("YOUTUBE_API_KEY")
+	ingester, err := NewIngester(db, youtubeAPIKey)
+	if err != nil {
+		log.Fatalf("Failed to initialize ingester: %v", err)
 	}
 
-	// Create required directories
-	requiredDirs := []string{"./models", "./cache", "./uploads", "./static"}
-	for _, dir := range requiredDirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			log.Fatalf("Failed to create directory %s: %v", dir, err)
+	// Start the ingester
+	ingester.Start()
+	defer ingester.Stop()
+
+	// Add source handling endpoints
+	http.HandleFunc("/api/source", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
 		}
-	}
 
-	// Initialize assistant
-	smartAssistant, err := assistant.NewSmartAssistant("SmartAI", config)
-	if err != nil {
-		log.Fatalf("Failed to initialize assistant: %v", err)
-	}
+		var source struct {
+			Type     string `json:"type"`
+			URL      string `json:"url"`
+			Schedule string `json:"schedule"`
+		}
 
-	// Initialize web GUI
-	gui, err := web.NewWebGUI(smartAssistant)
-	if err != nil {
-		log.Fatalf("Failed to initialize web GUI: %v", err)
-	}
+		if err := json.NewDecoder(r.Body).Decode(&source); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
 
-	// Start web server
-	log.Printf("Starting server on http://localhost:8080")
-	if err := gui.Start(8080); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		if err := ingester.AddSource(source.Type, source.URL, source.Schedule); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	// Existing chat handler
+	http.HandleFunc("/chat", chatHandler)
+
+	fmt.Println("Server started at :8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatalf("Error starting server: %v", err)
 	}
 }

@@ -1,0 +1,32 @@
+-- Sources table to track different knowledge sources
+CREATE TABLE IF NOT EXISTS knowledge_sources (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    url TEXT NOT NULL,
+    schedule TEXT NOT NULL, -- Cron expression
+    last_updated TIMESTAMP WITH TIME ZONE,
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add index for active sources
+CREATE INDEX IF NOT EXISTS idx_knowledge_sources_active 
+ON knowledge_sources(active);
+
+-------------- Set up environment variables:
+--bash
+
+export DATABASE_URL="postgres://username:password@localhost:5432/your_database_name?sslmode=disable"
+export YOUTUBE_API_KEY="your-youtube-api-key"
+
+---------------- Add knowledge sources via the API:
+--bash
+# Add an RSS feed
+curl -X POST http://localhost:8080/api/source \
+  -H "Content-Type: application/json" \
+  -d '{"type":"rss","url":"https://example.com/feed.xml","schedule":"0 */1 * * *"}'
+
+# Add a YouTube video
+curl -X POST http://localhost:8080/api/source \
+  -H "Content-Type: application/json" \
+  -d '{"type":"youtube","url
